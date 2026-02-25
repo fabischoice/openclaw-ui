@@ -52,7 +52,9 @@ export default function Chat() {
         const data = JSON.parse(e.data)
         if (data.type === 'history') {
           setMessages(data.messages || [])
-          setConnected(true) // mark connected only after first data arrives
+          setConnected(true)
+          // Reset scroll flag so initial load always jumps to bottom
+          userScrolled.current = false
         }
       } catch {}
     }
@@ -60,9 +62,22 @@ export default function Chat() {
     return () => es.close()
   }, [currentAgent])
 
+  const isFirstLoad = useRef(true)
+
   useEffect(() => {
-    if (!userScrolled.current) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (!userScrolled.current) {
+      // Use instant scroll on first load, smooth for new messages
+      const behavior = isFirstLoad.current ? 'instant' : 'smooth'
+      bottomRef.current?.scrollIntoView({ behavior })
+      isFirstLoad.current = false
+    }
   }, [messages])
+
+  // Reset on agent switch
+  useEffect(() => {
+    isFirstLoad.current = true
+    userScrolled.current = false
+  }, [currentAgent])
 
   const switchModel = async (model) => {
     setCurrentModel(model)
