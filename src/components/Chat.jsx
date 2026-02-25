@@ -18,6 +18,15 @@ const MODEL_META = {
 }
 const modelMeta = (id) => MODEL_META[id] || { tier: '?', label: (id||'').split('/').pop(), desc: '', color: 'bg-gray-100 text-gray-600 border-gray-200', dot: 'bg-gray-400' }
 
+const TIER_ORDER = { 'Basic': 0, 'Medium': 1, 'Hard': 2, 'Code': 3 }
+const sortModelsByTier = (modelList) => {
+  return [...modelList].sort((a, b) => {
+    const tierA = modelMeta(a.id).tier
+    const tierB = modelMeta(b.id).tier
+    return (TIER_ORDER[tierA] ?? 999) - (TIER_ORDER[tierB] ?? 999)
+  })
+}
+
 export default function Chat() {
   const [messages,     setMessages]     = useState([])
   const [input,        setInput]        = useState('')
@@ -215,7 +224,7 @@ export default function Chat() {
           <div className="flex flex-col items-end gap-1.5">
             <span className="text-[11px] text-blue-400 font-semibold uppercase tracking-widest">Modelo</span>
             <div className="flex gap-1.5">
-              {models.map(m => {
+              {sortModelsByTier(models).map(m => {
                 const meta = modelMeta(m.id)
                 const active = currentModel === m.id
                 return (
