@@ -179,14 +179,22 @@ app.get('/api/chat/stream', (req, res) => {
   if (!sseClients[agentId]) sseClients[agentId] = {}
   sseClients[agentId][clientId] = res
 
-  // Watch the JSONL file for changes
-  const session = getMainSession(agentId)
-  let watcher = null
+  // Always send an initial history event (even if empty) so frontend knows we're connected
+  let currentSession = getMainSession(agentId)
   let lastSize = 0
   let lastMessages = []
 
+  if (currentSession) {
+    const filePath = getJSONLPath(agentId, currentSession.sessionId, currentSession.sessionFile)
+    lastMessages = readJSONLMessages(filePath, 100)
+  }
+  res.write(`data: ${JSON.stringify({ type: 'history', messages: lastMessages })}\n\n`)
+
   const checkForNew = () => {
+    // Re-check session in case it was just created
+    const session = getMainSession(agentId)
     if (!session) return
+    currentSession = session
     const filePath = getJSONLPath(agentId, session.sessionId, session.sessionFile)
     try {
       const stat = fs.statSync(filePath)
@@ -200,13 +208,8 @@ app.get('/api/chat/stream', (req, res) => {
     } catch {}
   }
 
-  if (session) {
-    const filePath = getJSONLPath(agentId, session.sessionId, session.sessionFile)
-    lastMessages = readJSONLMessages(filePath, 100)
-    res.write(`data: ${JSON.stringify({ type: 'history', messages: lastMessages })}\n\n`)
-    // Poll every second for new messages
-    watcher = setInterval(checkForNew, 1000)
-  }
+  // Poll every second regardless (also catches newly created sessions)
+  const watcher = setInterval(checkForNew, 1000)
 
   // Heartbeat
   const heartbeat = setInterval(() => res.write(': ping\n\n'), 15000)

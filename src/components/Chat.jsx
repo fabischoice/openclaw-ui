@@ -46,11 +46,14 @@ export default function Chat() {
     setConnected(false); setMessages([])
     const es = new EventSource(`/api/chat/stream?agent=${encodeURIComponent(currentAgent)}`)
     sseRef.current = es
-    es.onopen = () => setConnected(true)
+    es.onopen = () => {} // wait for first message to confirm connected
     es.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data)
-        if (data.type === 'history') { setMessages(data.messages||[]); setConnected(true) }
+        if (data.type === 'history') {
+          setMessages(data.messages || [])
+          setConnected(true) // mark connected only after first data arrives
+        }
       } catch {}
     }
     es.onerror = () => setConnected(false)
@@ -158,11 +161,15 @@ export default function Chat() {
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 bg-slate-50/50" onScroll={handleScroll}>
         {messages.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center h-full text-center py-16">
-            <div className="w-20 h-20 rounded-3xl bg-blue-50 border-2 border-blue-100 flex items-center justify-center text-4xl mb-5 shadow-sm">
-              {agentInfo?.identityEmoji || '🦞'}
+            <div className={`w-20 h-20 rounded-3xl border-2 flex items-center justify-center text-4xl mb-5 shadow-sm transition-all ${connected ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100'}`}>
+              {connected ? (agentInfo?.identityEmoji || '🦞') : '⏳'}
             </div>
-            <p className="text-lg font-bold text-gray-700">{agentInfo?.identityName || currentAgent}</p>
-            <p className="text-sm text-gray-400 mt-1">{connected ? '¿En qué te puedo ayudar?' : 'Conectando...'}</p>
+            <p className="text-lg font-bold text-gray-700">
+              {connected ? (agentInfo?.identityName || currentAgent) : 'Conectando...'}
+            </p>
+            <p className="text-sm text-gray-400 mt-1">
+              {connected ? '¡Escríbeme algo para comenzar! ✨' : 'Cargando conversación...'}
+            </p>
           </div>
         )}
 
