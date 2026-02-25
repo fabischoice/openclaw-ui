@@ -181,41 +181,34 @@ app.get('/api/models/list', h(async (req, res) => {
   res.json({ models, current })
 }))
 
-// Gateway tools/invoke helper
-const GATEWAY_URL = 'http://127.0.0.1:18789'
-const GATEWAY_TOKEN = (() => {
-  try {
-    const cfg = JSON.parse(fs.readFileSync(path.join(OPENCLAW_HOME, 'openclaw.json'), 'utf8'))
-    return cfg?.gateway?.auth?.token || ''
-  } catch { return '' }
-})()
-
-async function gatewayInvoke(tool, args, sessionKey = 'agent:main:main') {
-  const res = await fetch(`${GATEWAY_URL}/tools/invoke`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${GATEWAY_TOKEN}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ tool, args, sessionKey })
-  })
-  return res.json()
-}
-
-// Switch model — calls Gateway session_status to change model on live session
+// Switch model — sends /model command to the session (gateway processes slash commands)
 app.post('/api/model', h(async (req, res) => {
   const { model, agent } = req.body
-  const sessionKey = agent && agent !== 'main' ? `agent:${agent}:main` : 'agent:main:main'
+  const agentId = agent || 'main'
+  const session = getMainSession(agentId)
   
-  // Call Gateway to switch model on the live session
-  const result = await gatewayInvoke('session_status', { model }, sessionKey)
+  if (!session) {
+    return res.json({ ok: false, error: 'No session found' })
+  }
   
-  // Also save locally
-  appState.currentModel = model
-  saveState()
+  // Send /model command as a message — gateway processes it as a slash command
+  const args = ['agent', '-m', `/model ${model}`, '--json']
+  if (session?.sessionId) {
+    args.push('--session-id', session.sessionId)
+  }
   
-  const changed = result?.result?.details?.changedModel || false
-  res.json({ ok: true, model, changedModel: changed })
+  try {
+    const { stdout } = await execFileP('openclaw', args, {
+      timeout: 30000,
+      env: { ...process.env, NO_COLOR: '1' },
+      maxBuffer: 1024 * 1024
+    })
+    appState.currentModel = model
+    saveState()
+    res.json({ ok: true, model })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
 }))
 
 // Get current state
@@ -226,12 +219,34 @@ app.get('/api/state', h(async (req, res) => {
   })
 }))
 
-// Set thinking mode — saved locally, applied when sending messages
-// (thinking is a per-turn setting, not a persistent gateway setting)
+// Set thinking mode — sends /reasoning command to the session
 app.post('/api/thinking', h(async (req, res) => {
-  appState.thinking = req.body.thinking
-  saveState()
-  res.json({ ok: true, thinking: req.body.thinking })
+  const { thinking, agent } = req.body
+  const agentId = agent || 'main'
+  const session = getMainSession(agentId)
+  
+  if (!session) {
+    return res.json({ ok: false, error: 'No session found' })
+  }
+  
+  // Send /reasoning command as a message — gateway processes it as a slash command
+  const args = ['agent', '-m', `/reasoning ${thinking}`, '--json']
+  if (session?.sessionId) {
+    args.push('--session-id', session.sessionId)
+  }
+  
+  try {
+    const { stdout } = await execFileP('openclaw', args, {
+      timeout: 30000,
+      env: { ...process.env, NO_COLOR: '1' },
+      maxBuffer: 1024 * 1024
+    })
+    appState.thinking = thinking
+    saveState()
+    res.json({ ok: true, thinking })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
 }))
 
 // ── Chat history ──
