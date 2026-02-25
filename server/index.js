@@ -191,8 +191,21 @@ app.post('/api/model', h(async (req, res) => {
     return res.json({ ok: false, error: 'No session found' })
   }
   
+  // Get model alias (e.g. "haiku" from "anthropic/claude-haiku-4-5")
+  // Fetch models to find the alias
+  let modelAlias = model
+  try {
+    const raw = await oc('models')
+    const jsonMatch = raw.match(/\[[\s\S]*\]/)
+    if (jsonMatch) {
+      const models = JSON.parse(jsonMatch[0])
+      const found = models.find(m => m.id === model)
+      if (found?.alias) modelAlias = found.alias
+    }
+  } catch {}
+  
   // Send /model command as a message — gateway processes it as a slash command
-  const args = ['agent', '-m', `/model ${model}`, '--json']
+  const args = ['agent', '-m', `/model ${modelAlias}`, '--json']
   if (session?.sessionId) {
     args.push('--session-id', session.sessionId)
   }
@@ -219,7 +232,7 @@ app.get('/api/state', h(async (req, res) => {
   })
 }))
 
-// Set thinking mode — sends /reasoning command to the session
+// Set thinking mode — sends /thinking command to the session
 app.post('/api/thinking', h(async (req, res) => {
   const { thinking, agent } = req.body
   const agentId = agent || 'main'
@@ -229,8 +242,8 @@ app.post('/api/thinking', h(async (req, res) => {
     return res.json({ ok: false, error: 'No session found' })
   }
   
-  // Send /reasoning command as a message — gateway processes it as a slash command
-  const args = ['agent', '-m', `/reasoning ${thinking}`, '--json']
+  // Send /thinking command as a message — gateway processes it as a slash command
+  const args = ['agent', '-m', `/thinking ${thinking}`, '--json']
   if (session?.sessionId) {
     args.push('--session-id', session.sessionId)
   }
