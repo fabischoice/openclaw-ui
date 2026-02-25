@@ -15,10 +15,36 @@ app.use(express.json())
 
 const PORT = 3456
 const OPENCLAW_HOME = path.join(process.env.HOME, '.openclaw')
+const STATE_FILE = path.join(OPENCLAW_HOME, 'ui-state.json')
+
+// In-memory state (persisted to file)
+let appState = { currentModel: '', thinking: 'off' }
 
 // Keep-alive
 process.on('uncaughtException', (err) => console.error('Uncaught:', err.message))
 process.on('unhandledRejection', (err) => console.error('Unhandled:', err))
+
+// Load state from file on startup
+function loadState() {
+  try {
+    if (fs.existsSync(STATE_FILE)) {
+      appState = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'))
+    }
+  } catch (err) {
+    console.error('Failed to load state:', err.message)
+  }
+}
+
+// Save state to file
+function saveState() {
+  try {
+    fs.writeFileSync(STATE_FILE, JSON.stringify(appState, null, 2))
+  } catch (err) {
+    console.error('Failed to save state:', err.message)
+  }
+}
+
+loadState()
 
 // ── Helpers ──
 async function oc(...args) {
@@ -150,12 +176,62 @@ app.get('/api/models/list', h(async (req, res) => {
     const alias = config.agents.defaults.models[id]?.alias || null
     return { id, alias }
   })
-  res.json({ models, current: config?.agents?.defaults?.model?.primary || '' })
+  // Return the actual current model from appState, fallback to config default
+  const current = appState.currentModel || config?.agents?.defaults?.model?.primary || ''
+  res.json({ models, current })
 }))
 
+// Gateway tools/invoke helper
+const GATEWAY_URL = 'http://127.0.0.1:18789'
+const GATEWAY_TOKEN = (() => {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(OPENCLAW_HOME, 'openclaw.json'), 'utf8'))
+    return cfg?.gateway?.auth?.token || ''
+  } catch { return '' }
+})()
+
+async function gatewayInvoke(tool, args, sessionKey = 'agent:main:main') {
+  const res = await fetch(`${GATEWAY_URL}/tools/invoke`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${GATEWAY_TOKEN}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ tool, args, sessionKey })
+  })
+  return res.json()
+}
+
+// Switch model — calls Gateway session_status to change model on live session
 app.post('/api/model', h(async (req, res) => {
-  app.locals.currentModel = req.body.model
-  res.json({ ok: true, model: req.body.model })
+  const { model, agent } = req.body
+  const sessionKey = agent && agent !== 'main' ? `agent:${agent}:main` : 'agent:main:main'
+  
+  // Call Gateway to switch model on the live session
+  const result = await gatewayInvoke('session_status', { model }, sessionKey)
+  
+  // Also save locally
+  appState.currentModel = model
+  saveState()
+  
+  const changed = result?.result?.details?.changedModel || false
+  res.json({ ok: true, model, changedModel: changed })
+}))
+
+// Get current state
+app.get('/api/state', h(async (req, res) => {
+  res.json({ 
+    currentModel: appState.currentModel,
+    thinking: appState.thinking
+  })
+}))
+
+// Set thinking mode — saved locally, applied when sending messages
+// (thinking is a per-turn setting, not a persistent gateway setting)
+app.post('/api/thinking', h(async (req, res) => {
+  appState.thinking = req.body.thinking
+  saveState()
+  res.json({ ok: true, thinking: req.body.thinking })
 }))
 
 // ── Chat history ──

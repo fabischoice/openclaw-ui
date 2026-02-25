@@ -40,6 +40,23 @@ export default function Chat() {
     fetch('/api/agents').then(r => r.json()).then(d => setAgents(d.agents||[])).catch(()=>{})
   }, [])
 
+  // Poll state for changes (via CLI commands)
+  useEffect(() => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/state')
+        const data = await res.json()
+        if (data.currentModel && data.currentModel !== currentModel) {
+          setCurrentModel(data.currentModel)
+        }
+        if (data.thinking && data.thinking !== thinking) {
+          setThinking(data.thinking)
+        }
+      } catch {}
+    }, 2000) // Poll every 2 seconds
+    return () => clearInterval(pollInterval)
+  }, [currentModel, thinking])
+
   // SSE stream
   useEffect(() => {
     if (sseRef.current) { sseRef.current.close(); sseRef.current = null }
@@ -82,6 +99,11 @@ export default function Chat() {
   const switchModel = async (model) => {
     setCurrentModel(model)
     await fetch('/api/model', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model }) }).catch(()=>{})
+  }
+
+  const switchThinking = async (thinkingMode) => {
+    setThinking(thinkingMode)
+    await fetch('/api/thinking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ thinking: thinkingMode }) }).catch(()=>{})
   }
 
   const send = async () => {
@@ -227,7 +249,7 @@ export default function Chat() {
         <div className="flex items-center gap-1.5 mb-3">
           <span className="text-xs text-gray-400 font-semibold mr-1">Razonamiento:</span>
           {THINKING_MODES.map(m => (
-            <button key={m.id} onClick={() => setThinking(m.id)} title={m.desc}
+            <button key={m.id} onClick={() => switchThinking(m.id)} title={m.desc}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
                 thinking === m.id
                   ? 'bg-blue-500 text-white shadow-md shadow-blue-200'
