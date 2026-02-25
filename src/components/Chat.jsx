@@ -3,10 +3,11 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 const THINKING_MODES = [
-  { id: 'off',    label: 'Off',    emoji: '💤', desc: 'Sin razonamiento extra' },
-  { id: 'low',    label: 'Rápido', emoji: '⚡', desc: 'Pensamiento rápido' },
-  { id: 'medium', label: 'Normal', emoji: '🧠', desc: 'Balanceado' },
-  { id: 'high',   label: 'Profundo', emoji: '🔬', desc: 'Análisis profundo' },
+  { id: 'off',     label: 'Off',      emoji: '💤', desc: 'Sin razonamiento extra' },
+  { id: 'minimal', label: 'Mínimo',   emoji: '✨', desc: 'Razonamiento mínimo' },
+  { id: 'low',     label: 'Rápido',   emoji: '⚡', desc: 'Pensamiento rápido' },
+  { id: 'medium',  label: 'Normal',   emoji: '🧠', desc: 'Balanceado' },
+  { id: 'high',    label: 'Profundo', emoji: '🔬', desc: 'Análisis profundo' },
 ]
 
 const MODEL_META = {
