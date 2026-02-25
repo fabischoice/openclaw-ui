@@ -232,7 +232,7 @@ export default function Chat() {
                     onClick={() => switchModel(m.id)} 
                     disabled={switchingModel}
                     title={meta.desc}
-                    className={`flex flex-col items-center px-3 py-2 rounded-xl border-2 text-xs font-bold transition-all duration-200 ${
+                    className={`w-16 h-16 flex flex-col items-center justify-center rounded-xl border-2 text-xs font-bold transition-all duration-200 ${
                       switchingModel ? 'opacity-50 cursor-wait' : ''
                     } ${
                       active ? `${meta.color} border-current shadow-sm` : 'bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500'
