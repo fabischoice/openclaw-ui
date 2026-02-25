@@ -243,6 +243,28 @@ app.post('/api/chat', h(async (req, res) => {
   res.json({ reply })
 }))
 
+// ── Gateway controls ──
+app.get('/api/gateway/status', h(async (req, res) => {
+  const raw = await oc('gateway', 'status').catch(() => '')
+  const running = raw.toLowerCase().includes('running') || raw.toLowerCase().includes('active')
+  res.json({ running, raw })
+}))
+
+app.post('/api/gateway/start', h(async (req, res) => {
+  const raw = await oc('gateway', 'start')
+  res.json({ ok: true, raw })
+}))
+
+app.post('/api/gateway/stop', h(async (req, res) => {
+  const raw = await oc('gateway', 'stop')
+  res.json({ ok: true, raw })
+}))
+
+app.post('/api/gateway/restart', h(async (req, res) => {
+  const raw = await oc('gateway', 'restart')
+  res.json({ ok: true, raw })
+}))
+
 // ── Cron ──
 app.get('/api/cron', h(async (req, res) => {
   const raw = await oc('cron', 'list', '--json')
