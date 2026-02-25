@@ -34,35 +34,35 @@ export default function Usage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
-        <h2 className="text-lg font-semibold">📊 Usage & Cost</h2>
+      <div className="flex items-center justify-between px-6 py-4 border-b border-blue-100 bg-white">
+        <h2 className="text-lg font-bold text-blue-700">📊 Usage & Cost</h2>
         <button
           onClick={load}
-          className="text-xs px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors"
+          className="text-sm px-4 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-500 font-semibold transition-colors"
         >
-          Refrescar
+          🔄 Refrescar
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {loading ? (
-          <div className="flex items-center justify-center h-32 text-gray-500">Cargando...</div>
+          <div className="flex items-center justify-center h-32 text-blue-300">Cargando...</div>
         ) : (
           <>
             {/* Summary cards */}
             {usage && (
               <div className="grid grid-cols-3 gap-4">
-                <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
-                  <p className="text-xs text-gray-500 mb-1">Tokens (input)</p>
-                  <p className="text-2xl font-bold text-blue-400">{fmtNum(usage.totalInputTokens)}</p>
+                <div className="bg-white rounded-2xl p-5 border border-blue-100 shadow-sm">
+                  <p className="text-xs text-blue-400 font-medium uppercase tracking-wide mb-2">Tokens (input)</p>
+                  <p className="text-2xl font-bold text-blue-600">{fmtNum(usage.totalInputTokens)}</p>
                 </div>
-                <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
-                  <p className="text-xs text-gray-500 mb-1">Tokens (output)</p>
-                  <p className="text-2xl font-bold text-green-400">{fmtNum(usage.totalOutputTokens)}</p>
+                <div className="bg-white rounded-2xl p-5 border border-blue-100 shadow-sm">
+                  <p className="text-xs text-blue-400 font-medium uppercase tracking-wide mb-2">Tokens (output)</p>
+                  <p className="text-2xl font-bold text-blue-500">{fmtNum(usage.totalOutputTokens)}</p>
                 </div>
-                <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
-                  <p className="text-xs text-gray-500 mb-1">Costo estimado</p>
-                  <p className="text-2xl font-bold text-yellow-400">{fmtCost(usage.totalCost)}</p>
+                <div className="bg-white rounded-2xl p-5 border border-blue-100 shadow-sm">
+                  <p className="text-xs text-blue-400 font-medium uppercase tracking-wide mb-2">Costo estimado</p>
+                  <p className="text-2xl font-bold text-blue-700">{fmtCost(usage.totalCost)}</p>
                 </div>
               </div>
             )}
@@ -70,15 +70,15 @@ export default function Usage() {
             {/* Per-model breakdown */}
             {usage?.byModel && Object.keys(usage.byModel).length > 0 && (
               <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-3">Por modelo</h3>
-                <div className="bg-gray-900 rounded-xl border border-gray-800 divide-y divide-gray-800">
+                <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wide mb-3">Por modelo</h3>
+                <div className="bg-white rounded-2xl border border-blue-100 shadow-sm divide-y divide-blue-50">
                   {Object.entries(usage.byModel).map(([model, data]) => (
-                    <div key={model} className="px-4 py-3 flex items-center justify-between">
+                    <div key={model} className="px-5 py-3.5 flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium">{model}</p>
-                        <p className="text-xs text-gray-500">{fmtNum(data.inputTokens)} in · {fmtNum(data.outputTokens)} out</p>
+                        <p className="text-sm font-semibold text-gray-700">{model}</p>
+                        <p className="text-xs text-gray-400">{fmtNum(data.inputTokens)} in · {fmtNum(data.outputTokens)} out</p>
                       </div>
-                      <p className="text-sm text-yellow-400 font-mono">{fmtCost(data.cost)}</p>
+                      <p className="text-sm text-blue-600 font-mono font-semibold">{fmtCost(data.cost)}</p>
                     </div>
                   ))}
                 </div>
@@ -88,16 +88,19 @@ export default function Usage() {
             {/* Sessions */}
             {sessions.length > 0 && (
               <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-3">Sesiones activas</h3>
-                <div className="bg-gray-900 rounded-xl border border-gray-800 divide-y divide-gray-800">
+                <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wide mb-3">Sesiones activas</h3>
+                <div className="bg-white rounded-2xl border border-blue-100 shadow-sm divide-y divide-blue-50">
                   {sessions.map((s, i) => (
-                    <div key={i} className="px-4 py-3">
+                    <div key={i} className="px-5 py-3.5">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium">{s.agent || 'main'}</p>
-                        <span className="text-xs text-gray-500">{s.model || '—'}</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                          <p className="text-sm font-semibold text-gray-700">{s.agent || 'main'}</p>
+                        </div>
+                        <span className="text-xs text-blue-400 bg-blue-50 px-2 py-0.5 rounded-md font-medium">{s.model || '—'}</span>
                       </div>
                       {s.lastActivity && (
-                        <p className="text-xs text-gray-500 mt-0.5">
+                        <p className="text-xs text-gray-400 mt-1 ml-4">
                           Última actividad: {new Date(s.lastActivity).toLocaleString('es-PR')}
                         </p>
                       )}
@@ -110,8 +113,8 @@ export default function Usage() {
             {/* Raw status */}
             {usage?.raw && (
               <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-3">Estado completo</h3>
-                <pre className="bg-gray-900 rounded-xl border border-gray-800 p-4 text-xs text-gray-400 overflow-x-auto whitespace-pre-wrap">
+                <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wide mb-3">Estado completo</h3>
+                <pre className="bg-white rounded-2xl border border-blue-100 shadow-sm p-5 text-xs text-gray-500 overflow-x-auto whitespace-pre-wrap font-mono">
                   {usage.raw}
                 </pre>
               </div>
