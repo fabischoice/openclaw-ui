@@ -98,47 +98,43 @@ export default function Chat() {
 
       {/* ── Agent hero bar ── */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 px-6 py-4">
-        {/* Agent tabs */}
-        {agents.length > 1 && (
-          <div className="flex gap-2 mb-4 flex-wrap">
-            {agents.map(a => (
-              <button
-                key={a.id}
-                onClick={() => setCurrentAgent(a.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-semibold transition-all duration-200 border ${
-                  currentAgent === a.id
-                    ? 'bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-200'
-                    : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-500'
-                }`}
-              >
-                <span className="text-base">{a.identityEmoji || '🤖'}</span>
-                {a.identityName || a.id}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex items-center justify-between gap-4">
 
-        {/* Current agent display */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-white border-2 border-blue-200 shadow-md flex items-center justify-center text-3xl">
-              {agentInfo?.identityEmoji || '🦞'}
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-800 leading-tight">
-                {agentInfo?.identityName || currentAgent}
-              </h2>
-              <div className="flex items-center gap-2 mt-1">
-                <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-400 animate-pulse' : 'bg-red-300'}`} />
-                <span className="text-xs text-gray-400 font-medium">{connected ? 'En vivo' : 'Conectando...'}</span>
-              </div>
-            </div>
+          {/* Agent selector — all agents in one row, active one is expanded */}
+          <div className="flex items-center gap-3">
+            {agents.map(a => {
+              const active = a.id === currentAgent
+              return (
+                <button
+                  key={a.id}
+                  onClick={() => setCurrentAgent(a.id)}
+                  className={`flex items-center gap-3 rounded-2xl transition-all duration-200 border-2 ${
+                    active
+                      ? 'bg-white border-blue-300 shadow-md px-4 py-2.5'
+                      : 'bg-white/50 border-transparent hover:border-blue-200 hover:bg-white/80 px-3 py-2'
+                  }`}
+                >
+                  <span className={`transition-all duration-200 ${active ? 'text-3xl' : 'text-2xl opacity-60'}`}>
+                    {a.identityEmoji || '🤖'}
+                  </span>
+                  {active && (
+                    <div className="text-left">
+                      <p className="text-base font-bold text-gray-800 leading-tight">{a.identityName || a.id}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <div className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-400 animate-pulse' : 'bg-red-300'}`} />
+                        <span className="text-xs text-gray-400">{connected ? 'En vivo' : 'Conectando...'}</span>
+                      </div>
+                    </div>
+                  )}
+                </button>
+              )
+            })}
           </div>
 
           {/* Model picker */}
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-col items-end gap-1.5">
             <span className="text-[11px] text-blue-400 font-semibold uppercase tracking-widest">Modelo</span>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5">
               {models.map(m => {
                 const meta = modelMeta(m.id)
                 const active = currentModel === m.id
