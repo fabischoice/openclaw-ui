@@ -6,6 +6,7 @@
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "node server/index.js",
     "dev:client": "vite",
+    "start": "node start.js",
     "build": "vite build"
   },
   "dependencies": {
