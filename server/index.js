@@ -180,6 +180,28 @@ app.get('/api/agents', h(async (req, res) => {
   res.json({ agents: JSON.parse(raw) })
 }))
 
+app.post('/api/agents', h(async (req, res) => {
+  const { name, emoji, model, description } = req.body
+  if (!name) return res.status(400).json({ error: 'Nombre requerido' })
+  // Check count
+  const listRaw = await oc('agents', 'list', '--json')
+  const existing = JSON.parse(listRaw)
+  if (existing.length >= 8) return res.status(400).json({ error: 'Máximo 8 agents permitidos' })
+  // Create agent
+  const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  const args = ['agents', 'add', id]
+  if (model) args.push('--model', model)
+  await oc(...args)
+  // Set identity
+  if (name || emoji) {
+    const idArgs = ['agents', 'set-identity', id]
+    if (name) idArgs.push('--name', name)
+    if (emoji) idArgs.push('--emoji', emoji)
+    try { await oc(...idArgs) } catch {}
+  }
+  res.json({ ok: true, id })
+}))
+
 app.get('/api/subagents', h(async (req, res) => {
   // Subagents are ephemeral session-level constructs
   res.json({ subagents: [] })
@@ -196,7 +218,7 @@ app.post('/api/subagents/:target/steer', h(async (req, res) => {
 // ── Usage ──
 app.get('/api/usage', h(async (req, res) => {
   const raw = await oc('status')
-  res.json({ raw, totalInputTokens: null, totalOutputTokens: null, totalCost: null, byModel: {} })
+  res.json({ raw, sessions: [] })
 }))
 
 // ── Sessions ──
@@ -208,7 +230,9 @@ app.get('/api/sessions', h(async (req, res) => {
 }))
 
 // Start
-const server = app.listen(PORT, () => {
+const http = require('http')
+const server = http.createServer(app)
+server.listen(PORT, () => {
   console.log(`OpenClaw UI server running on http://localhost:${PORT}`)
 })
 server.keepAliveTimeout = 65000

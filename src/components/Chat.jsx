@@ -2,22 +2,43 @@ import { useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-const THINKING_MODES = ['off', 'low', 'medium', 'high']
+const THINKING_MODES = [
+  { id: 'off', label: 'Off', desc: 'Sin razonamiento extra' },
+  { id: 'low', label: 'Low', desc: 'Rápido' },
+  { id: 'medium', label: 'Med', desc: 'Balanceado' },
+  { id: 'high', label: 'High', desc: 'Profundo' },
+]
+
+const MODEL_INFO = {
+  'anthropic/claude-haiku-4-5': { tier: 'Basic', label: 'Haiku', desc: 'Rápido y económico — tareas simples', color: 'bg-green-100 text-green-700 border-green-200' },
+  'anthropic/claude-sonnet-4-6': { tier: 'Medium', label: 'Sonnet', desc: 'Balanceado — la mayoría de tareas', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  'anthropic/claude-opus-4-6': { tier: 'Hard', label: 'Opus', desc: 'Máxima calidad — tareas complejas', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+  'openai-codex/gpt-5.3-codex': { tier: 'Code', label: 'Codex', desc: 'Especializado en código', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+}
+
+const getModelInfo = (id) => MODEL_INFO[id] || { tier: '?', label: id.split('/').pop(), desc: '', color: 'bg-gray-100 text-gray-600 border-gray-200' }
 
 export default function Chat() {
-  const [messages, setMessages] = useState([])
+  const [conversations, setConversations] = useState({}) // agentId -> messages[]
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [models, setModels] = useState([])
   const [currentModel, setCurrentModel] = useState('')
   const [thinking, setThinking] = useState('off')
+  const [agents, setAgents] = useState([])
+  const [currentAgent, setCurrentAgent] = useState('main')
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
+
+  const messages = conversations[currentAgent] || []
 
   useEffect(() => {
     fetch('/api/models').then(r => r.json()).then(data => {
       setModels(data.models || [])
       setCurrentModel(data.current || '')
+    }).catch(() => {})
+    fetch('/api/agents').then(r => r.json()).then(data => {
+      setAgents(data.agents || [])
     }).catch(() => {})
   }, [])
 
@@ -36,33 +57,34 @@ export default function Chat() {
     } catch {}
   }
 
-  const switchThinking = async (level) => {
-    setThinking(level)
-    try {
-      await fetch('/api/thinking', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ level })
-      })
-    } catch {}
-  }
-
   const send = async () => {
     const text = input.trim()
     if (!text || loading) return
     setInput('')
-    setMessages(prev => [...prev, { role: 'user', content: text }])
+    const newMsg = { role: 'user', content: text, ts: Date.now() }
+    setConversations(prev => ({
+      ...prev,
+      [currentAgent]: [...(prev[currentAgent] || []), newMsg]
+    }))
     setLoading(true)
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, model: currentModel, thinking })
+        body: JSON.stringify({ message: text, model: currentModel, thinking, agent: currentAgent })
       })
       const data = await res.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply || data.error || 'No response' }])
+      const reply = { role: 'assistant', content: data.reply || data.error || 'No response', ts: Date.now() }
+      setConversations(prev => ({
+        ...prev,
+        [currentAgent]: [...(prev[currentAgent] || []), reply]
+      }))
     } catch (err) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }])
+      const errMsg = { role: 'assistant', content: `Error: ${err.message}`, ts: Date.now() }
+      setConversations(prev => ({
+        ...prev,
+        [currentAgent]: [...(prev[currentAgent] || []), errMsg]
+      }))
     }
     setLoading(false)
     inputRef.current?.focus()
@@ -75,44 +97,55 @@ export default function Chat() {
     }
   }
 
+  const curModelInfo = getModelInfo(currentModel)
+
   return (
     <div className="flex flex-col h-full">
-      {/* Toolbar */}
+      {/* Top bar: Model selector + Agent switcher */}
       <div className="flex items-center gap-4 px-5 py-3 border-b border-blue-100 bg-white flex-wrap">
-        {/* Model selector */}
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-blue-400 font-medium uppercase tracking-wide">Model</label>
-          <select
-            value={currentModel}
-            onChange={e => switchModel(e.target.value)}
-            className="bg-blue-50 text-sm text-blue-700 rounded-lg px-3 py-1.5 border border-blue-200 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 font-medium"
-          >
-            {models.map(m => (
-              <option key={m.id} value={m.id}>
-                {m.alias || m.id}
-              </option>
-            ))}
-          </select>
+        {/* Agent switcher */}
+        <div className="flex items-center gap-1.5">
+          {agents.map(a => (
+            <button
+              key={a.id}
+              onClick={() => setCurrentAgent(a.id)}
+              className={`px-3 py-1.5 text-sm rounded-xl font-medium transition-all duration-200 flex items-center gap-1.5 ${
+                currentAgent === a.id
+                  ? 'bg-blue-500 text-white shadow-md shadow-blue-200'
+                  : 'bg-blue-50 text-blue-400 hover:bg-blue-100 border border-blue-100'
+              }`}
+            >
+              <span>{a.identityEmoji || '🤖'}</span>
+              {a.identityName || a.id}
+            </button>
+          ))}
         </div>
 
         <div className="w-px h-6 bg-blue-100"></div>
 
-        {/* Thinking mode */}
-        <div className="flex items-center gap-1.5">
-          <label className="text-xs text-blue-400 font-medium uppercase tracking-wide mr-1">Thinking</label>
-          {THINKING_MODES.map(mode => (
-            <button
-              key={mode}
-              onClick={() => switchThinking(mode)}
-              className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-all duration-200 ${
-                thinking === mode
-                  ? 'bg-blue-500 text-white shadow-md shadow-blue-200'
-                  : 'bg-blue-50 text-blue-400 hover:bg-blue-100 hover:text-blue-600 border border-blue-100'
-              }`}
-            >
-              {mode}
-            </button>
-          ))}
+        {/* Model selector */}
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-blue-400 font-medium uppercase tracking-wide">Model</label>
+          <div className="flex gap-1.5">
+            {models.map(m => {
+              const info = getModelInfo(m.id)
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => switchModel(m.id)}
+                  className={`px-3 py-1.5 text-xs rounded-xl font-semibold transition-all duration-200 border ${
+                    currentModel === m.id
+                      ? `${info.color} shadow-sm`
+                      : 'bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100'
+                  }`}
+                  title={info.desc}
+                >
+                  <span className="block">{info.tier}</span>
+                  <span className="block text-[10px] font-normal opacity-75">{info.label}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 
@@ -121,9 +154,11 @@ export default function Chat() {
         {messages.length === 0 && (
           <div className="flex items-center justify-center h-full text-blue-300">
             <div className="text-center">
-              <p className="text-5xl mb-4">🦞</p>
+              <p className="text-5xl mb-4">{agents.find(a => a.id === currentAgent)?.identityEmoji || '🦞'}</p>
               <p className="text-lg font-medium">Envía un mensaje para comenzar</p>
-              <p className="text-sm mt-1 text-blue-200">Tu asistente está lista ✨</p>
+              <p className="text-sm mt-1 text-blue-200">
+                Hablando con <strong>{agents.find(a => a.id === currentAgent)?.identityName || currentAgent}</strong> · {curModelInfo.tier} ({curModelInfo.label})
+              </p>
             </div>
           </div>
         )}
@@ -154,15 +189,35 @@ export default function Chat() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <div className="border-t border-blue-100 p-4 bg-white">
-        <div className="flex gap-3">
+      {/* Thinking mode + Input */}
+      <div className="border-t border-blue-100 bg-white">
+        {/* Thinking toggle */}
+        <div className="flex items-center gap-2 px-5 pt-3 pb-1">
+          <label className="text-xs text-blue-300 font-medium">🧠 Thinking:</label>
+          {THINKING_MODES.map(mode => (
+            <button
+              key={mode.id}
+              onClick={() => setThinking(mode.id)}
+              className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all duration-200 ${
+                thinking === mode.id
+                  ? 'bg-blue-500 text-white shadow-sm'
+                  : 'bg-blue-50 text-blue-300 hover:bg-blue-100 hover:text-blue-500'
+              }`}
+              title={mode.desc}
+            >
+              {mode.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Input */}
+        <div className="flex gap-3 px-5 pb-4 pt-2">
           <textarea
             ref={inputRef}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKey}
-            placeholder="Escribe un mensaje..."
+            placeholder={`Mensaje para ${agents.find(a => a.id === currentAgent)?.identityName || currentAgent}...`}
             rows={1}
             className="flex-1 bg-blue-50/50 text-gray-700 rounded-2xl px-4 py-3 resize-none border border-blue-200 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 placeholder-blue-300"
           />
