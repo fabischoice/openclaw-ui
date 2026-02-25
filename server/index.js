@@ -106,6 +106,9 @@ function readJSONLMessages(filePath, limit = 200) {
   } catch { return [] }
 }
 
+// ── Health (simple, no CLI) ──
+app.get('/api/health', (req, res) => res.json({ ok: true, ts: Date.now() }))
+
 // ── Status ──
 app.get('/api/status', h(async (req, res) => {
   const raw = await oc('status')
