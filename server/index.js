@@ -362,7 +362,16 @@ app.get('/api/sessions', h(async (req, res) => {
   } catch { res.json({ sessions: [] }) }
 }))
 
+// ── Serve built frontend ──
+const distPath = path.join(__dirname, '..', 'dist')
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath))
+  app.get(/^(?!\/api\/).*/, (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'))
+  })
+}
+
 // Start
 const server = http.createServer(app)
-server.listen(PORT, () => console.log(`OpenClaw UI server running on http://localhost:${PORT}`))
+server.listen(PORT, () => console.log(`OpenClaw UI running on http://localhost:${PORT}`))
 server.keepAliveTimeout = 65000
