@@ -27,6 +27,8 @@ export default function Chat() {
   const [agents,       setAgents]       = useState([])
   const [currentAgent, setCurrentAgent] = useState('main')
   const [connected,    setConnected]    = useState(false)
+  const [switchingModel, setSwitchingModel] = useState(false)
+  const [switchingThinking, setSwitchingThinking] = useState(false)
   const bottomRef   = useRef(null)
   const inputRef    = useRef(null)
   const sseRef      = useRef(null)
@@ -97,13 +99,53 @@ export default function Chat() {
   }, [currentAgent])
 
   const switchModel = async (model) => {
-    setCurrentModel(model)
-    await fetch('/api/model', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model }) }).catch(()=>{})
+    setSwitchingModel(true)
+    try {
+      const res = await fetch('/api/model', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ model }) 
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setCurrentModel(model)
+        const modelLabel = models.find(m => m.id === model)?.alias || model.split('/').pop() || model
+        setMessages(prev => [...prev, { 
+          role: 'system', 
+          content: `🔄 Modelo cambiado a ${modelLabel}`, 
+          ts: new Date().toISOString() 
+        }])
+      }
+    } catch (err) {
+      console.error('Model switch failed:', err)
+    } finally {
+      setSwitchingModel(false)
+    }
   }
 
-  const switchThinking = async (thinkingMode) => {
-    setThinking(thinkingMode)
-    await fetch('/api/thinking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ thinking: thinkingMode }) }).catch(()=>{})
+  const switchThinking = async (level) => {
+    setSwitchingThinking(true)
+    try {
+      const res = await fetch('/api/thinking', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ thinking: level }) 
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setThinking(level)
+        const levelLabel = THINKING_MODES.find(m => m.id === level)?.label || level
+        setMessages(prev => [...prev, { 
+          role: 'system', 
+          content: `🧠 Razonamiento: ${levelLabel}`, 
+          ts: new Date().toISOString() 
+        }])
+      }
+    } catch (err) {
+      console.error('Thinking switch failed:', err)
+    } finally {
+      setSwitchingThinking(false)
+    }
   }
 
   const send = async () => {
@@ -176,11 +218,16 @@ export default function Chat() {
                 const meta = modelMeta(m.id)
                 const active = currentModel === m.id
                 return (
-                  <button key={m.id} onClick={() => switchModel(m.id)} title={meta.desc}
+                  <button key={m.id} 
+                    onClick={() => switchModel(m.id)} 
+                    disabled={switchingModel}
+                    title={meta.desc}
                     className={`flex flex-col items-center px-3 py-2 rounded-xl border-2 text-xs font-bold transition-all duration-200 ${
+                      switchingModel ? 'opacity-50 cursor-wait' : ''
+                    } ${
                       active ? `${meta.color} border-current shadow-sm` : 'bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500'
                     }`}>
-                    <span>{meta.tier}</span>
+                    <span>{switchingModel && active ? '⏳' : meta.tier}</span>
                     <span className="font-normal opacity-70 text-[10px]">{meta.label}</span>
                   </button>
                 )
@@ -206,25 +253,36 @@ export default function Chat() {
           </div>
         )}
 
-        {messages.map((msg, i) => (
-          <div key={`${msg.ts}-${i}`} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {msg.role === 'assistant' && (
-              <div className="w-7 h-7 rounded-xl bg-blue-100 border border-blue-200 flex items-center justify-center text-sm mr-2 mt-1 flex-shrink-0">
-                {agentInfo?.identityEmoji || '🦞'}
+        {messages.map((msg, i) => {
+          if (msg.role === 'system') {
+            return (
+              <div key={`${msg.ts}-${i}`} className="flex justify-center">
+                <div className="bg-blue-50 text-blue-600 text-xs px-3 py-1.5 rounded-full border border-blue-200 font-medium">
+                  {msg.content}
+                </div>
               </div>
-            )}
-            <div className={`max-w-[72%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-              msg.role === 'user'
-                ? 'bg-blue-500 text-white shadow-md shadow-blue-200 rounded-br-sm'
-                : 'bg-white text-gray-700 border border-blue-100 shadow-sm rounded-bl-sm'
-            }`}>
-              {msg.role === 'assistant'
-                ? <div className="chat-md"><ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown></div>
-                : <p className="whitespace-pre-wrap">{msg.content}</p>
-              }
+            )
+          }
+          return (
+            <div key={`${msg.ts}-${i}`} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              {msg.role === 'assistant' && (
+                <div className="w-7 h-7 rounded-xl bg-blue-100 border border-blue-200 flex items-center justify-center text-sm mr-2 mt-1 flex-shrink-0">
+                  {agentInfo?.identityEmoji || '🦞'}
+                </div>
+              )}
+              <div className={`max-w-[72%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                msg.role === 'user'
+                  ? 'bg-blue-500 text-white shadow-md shadow-blue-200 rounded-br-sm'
+                  : 'bg-white text-gray-700 border border-blue-100 shadow-sm rounded-bl-sm'
+              }`}>
+                {msg.role === 'assistant'
+                  ? <div className="chat-md"><ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown></div>
+                  : <p className="whitespace-pre-wrap">{msg.content}</p>
+                }
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
 
         {loading && (
           <div className="flex justify-start items-center gap-2">
@@ -249,13 +307,18 @@ export default function Chat() {
         <div className="flex items-center gap-1.5 mb-3">
           <span className="text-xs text-gray-400 font-semibold mr-1">Razonamiento:</span>
           {THINKING_MODES.map(m => (
-            <button key={m.id} onClick={() => switchThinking(m.id)} title={m.desc}
+            <button key={m.id} 
+              onClick={() => switchThinking(m.id)} 
+              disabled={switchingThinking}
+              title={m.desc}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                switchingThinking ? 'opacity-50 cursor-wait' : ''
+              } ${
                 thinking === m.id
                   ? 'bg-blue-500 text-white shadow-md shadow-blue-200'
                   : 'bg-blue-50 text-blue-400 hover:bg-blue-100'
               }`}>
-              <span>{m.emoji}</span>
+              <span>{switchingThinking && thinking === m.id ? '⏳' : m.emoji}</span>
               {m.label}
             </button>
           ))}
