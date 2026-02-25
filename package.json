@@ -7,7 +7,8 @@
     "dev:server": "node server/index.js",
     "dev:client": "vite",
     "start": "node start.js",
-    "build": "vite build"
+    "build": "vite build",
+    "deploy": "vite build && launchctl unload ~/Library/LaunchAgents/com.openclaw.ui.server.plist 2>/dev/null; launchctl load ~/Library/LaunchAgents/com.openclaw.ui.server.plist"
   },
   "dependencies": {
     "concurrently": "^9.1.2",
