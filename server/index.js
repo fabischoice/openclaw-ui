@@ -189,7 +189,8 @@ app.post('/api/agents', h(async (req, res) => {
   if (existing.length >= 8) return res.status(400).json({ error: 'Máximo 8 agents permitidos' })
   // Create agent
   const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-  const args = ['agents', 'add', id]
+  const workspace = `${process.env.HOME}/.openclaw/agents/${id}/workspace`
+  const args = ['agents', 'add', id, '--non-interactive', '--workspace', workspace]
   if (model) args.push('--model', model)
   await oc(...args)
   // Set identity
