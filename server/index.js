@@ -51,18 +51,25 @@ function getActiveSessions(agentId = 'main') {
   try {
     const raw = fs.readFileSync(getSessionsPath(agentId), 'utf8')
     const data = JSON.parse(raw)
-    return Array.isArray(data) ? data : (data.sessions || [])
+    // sessions.json is an object keyed by session key
+    if (Array.isArray(data)) return data
+    if (data.sessions) return data.sessions
+    // Object format: { "agent:main:main": { sessionId, ... }, ... }
+    return Object.entries(data).map(([key, val]) => ({ key, ...val }))
   } catch { return [] }
 }
 
 function getMainSession(agentId = 'main') {
   const sessions = getActiveSessions(agentId)
   if (!sessions.length) return null
-  // Return most recently updated session
+  // Prefer webchat/direct session, fallback to most recent
+  const webchat = sessions.find(s => s.lastChannel === 'webchat' || s.deliveryContext?.channel === 'webchat')
+  if (webchat) return webchat
   return sessions.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0]
 }
 
-function getJSONLPath(agentId, sessionId) {
+function getJSONLPath(agentId, sessionId, sessionFile) {
+  if (sessionFile) return sessionFile
   return path.join(OPENCLAW_HOME, 'agents', agentId, 'sessions', `${sessionId}.jsonl`)
 }
 
@@ -153,7 +160,7 @@ app.get('/api/chat/history', h(async (req, res) => {
   const agentId = req.query.agent || 'main'
   const session = getMainSession(agentId)
   if (!session) return res.json({ messages: [], sessionId: null })
-  const filePath = getJSONLPath(agentId, session.sessionId)
+  const filePath = getJSONLPath(agentId, session.sessionId, session.sessionFile)
   const messages = readJSONLMessages(filePath, 100)
   res.json({ messages, sessionId: session.sessionId, sessionKey: session.key })
 }))
@@ -180,7 +187,7 @@ app.get('/api/chat/stream', (req, res) => {
 
   const checkForNew = () => {
     if (!session) return
-    const filePath = getJSONLPath(agentId, session.sessionId)
+    const filePath = getJSONLPath(agentId, session.sessionId, session.sessionFile)
     try {
       const stat = fs.statSync(filePath)
       if (stat.size === lastSize) return
@@ -194,7 +201,7 @@ app.get('/api/chat/stream', (req, res) => {
   }
 
   if (session) {
-    const filePath = getJSONLPath(agentId, session.sessionId)
+    const filePath = getJSONLPath(agentId, session.sessionId, session.sessionFile)
     lastMessages = readJSONLMessages(filePath, 100)
     res.write(`data: ${JSON.stringify({ type: 'history', messages: lastMessages })}\n\n`)
     // Poll every second for new messages
